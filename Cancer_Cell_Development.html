@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cancer Cell Development Visualization</title>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 20% 10%, #18264c 0%, transparent 35%),
+      radial-gradient(circle at 80% 80%, #341246 0%, transparent 35%),
+      #050812;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+  }
+
+  /* Instagram 3:4 canvas */
+  .instagram-frame {
+    width: min(96vw, 810px);
+    aspect-ratio: 3 / 4;
+    padding: 22px;
+
+    background:
+      linear-gradient(145deg,
+        rgba(255,255,255,.06),
+        rgba(255,255,255,.015));
+
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 28px;
+
+    box-shadow:
+      0 30px 100px rgba(0,0,0,.55),
+      inset 0 0 80px rgba(84,113,255,.04);
+
+    overflow: hidden;
+  }
+
+  header {
+    height: 11%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: clamp(22px, 4vw, 38px);
+    letter-spacing: .5px;
+
+    background: linear-gradient(
+      90deg,
+      #65efff,
+      #9b7bff,
+      #ff557f
+    );
+
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  header p {
+    margin: 6px 0 0;
+    color: #aeb8d9;
+    font-size: clamp(11px, 1.7vw, 15px);
+  }
+
+  .main {
+    height: 72%;
+    display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    gap: 14px;
+  }
+
+  .panel {
+    position: relative;
+
+    background:
+      linear-gradient(
+        150deg,
+        rgba(13,20,42,.96),
+        rgba(8,11,24,.96)
+      );
+
+    border: 1px solid rgba(140,170,255,.15);
+    border-radius: 22px;
+    overflow: hidden;
+  }
+
+  /* ---------------- OUTPUT ---------------- */
+
+  .stage {
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .microscope-grid {
+    position: absolute;
+    inset: 0;
+
+    background-image:
+      linear-gradient(
+        rgba(80,150,255,.045) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        rgba(80,150,255,.045) 1px,
+        transparent 1px
+      );
+
+    background-size: 34px 34px;
+  }
+
+  .glow {
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+
+    background:
+      radial-gradient(
+        circle,
+        rgba(53,221,255,.14),
+        transparent 68%
+      );
+
+    left: 50%;
+    top: 43%;
+    transform: translate(-50%, -50%);
+  }
+
+  #cellLayer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .cell {
+    --cell-color: 57, 221, 255;
+
+    position: absolute;
+
+    width: 88px;
+    height: 88px;
+
+    border-radius: 50% 46% 52% 48%;
+
+    transform:
+      translate(-50%, -50%)
+      scale(var(--scale, 1));
+
+    background:
+      radial-gradient(
+        circle at 35% 30%,
+        rgba(255,255,255,.55),
+        rgba(var(--cell-color), .72) 18%,
+        rgba(var(--cell-color), .34) 48%,
+        rgba(var(--cell-color), .12) 68%,
+        rgba(0,0,0,.1) 70%
+      );
+
+    border:
+      2px solid rgba(var(--cell-color), .78);
+
+    box-shadow:
+      0 0 22px rgba(var(--cell-color), .35),
+      inset 0 0 20px rgba(var(--cell-color), .28);
+
+    transition:
+      left 1s ease,
+      top 1s ease,
+      transform 1s ease,
+      border-radius 1s ease,
+      filter 1s ease;
+  }
+
+  .cell::before {
+    content: "";
+
+    position: absolute;
+
+    width: 38%;
+    height: 38%;
+
+    left: 31%;
+    top: 31%;
+
+    border-radius:
+      49% 54% 45% 56%;
+
+    background:
+      radial-gradient(
+        circle at 35% 30%,
+        #ff9be8,
+        #8e46cc 55%,
+        #351064 100%
+      );
+
+    box-shadow:
+      0 0 12px rgba(238,80,255,.8);
+
+    transition:
+      transform 1s ease,
+      border-radius 1s ease;
+  }
+
+  .cell.mutated {
+    --cell-color: 255, 70, 119;
+
+    border-radius:
+      42% 58% 34% 66% /
+      55% 36% 64% 45%;
+
+    filter: saturate(1.25);
+  }
+
+  .cell.mutated::before {
+    transform: scale(1.25);
+
+    border-radius:
+      34% 66% 60% 40% /
+      56% 42% 58% 44%;
+  }
+
+  .cell.aggressive {
+    --cell-color: 255, 40, 72;
+
+    filter:
+      saturate(1.5)
+      drop-shadow(0 0 10px rgba(255,40,90,.8));
+
+    animation:
+      pulseCell .8s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulseCell {
+    from {
+      scale: .97;
+    }
+
+    to {
+      scale: 1.06;
+    }
+  }
+
+  .dna {
+    position: absolute;
+
+    left: 50%;
+    top: 42%;
+
+    width: 150px;
+    height: 150px;
+
+    transform: translate(-50%, -50%);
+
+    pointer-events: none;
+
+    opacity: 0;
+
+    transition: opacity .5s ease;
+  }
+
+  .dna.active {
+    opacity: 1;
+  }
+
+  .dna span {
+    position: absolute;
+
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: #ffe15d;
+
+    box-shadow:
+      0 0 12px #ff9f32;
+
+    animation:
+      DNA 1.8s ease-in-out infinite;
+  }
+
+  @keyframes DNA {
+    50% {
+      transform: scale(1.8);
+      background: #ff406f;
+    }
+  }
+
+  .stage-info {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 15px;
+
+    padding: 14px;
+
+    background:
+      rgba(4,7,18,.82);
+
+    backdrop-filter: blur(12px);
+
+    border:
+      1px solid rgba(255,255,255,.12);
+
+    border-radius: 15px;
+  }
+
+  .stage-number {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #63efff;
+  }
+
+  .stage-name {
+    font-size: clamp(17px,2.5vw,24px);
+    font-weight: bold;
+    margin-top: 3px;
+  }
+
+  .stage-description {
+    margin-top: 6px;
+    color: #bbc4df;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* ---------------- CODE ---------------- */
+
+  .code-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .code-header {
+    padding: 13px 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border-bottom:
+      1px solid rgba(255,255,255,.08);
+
+    color: #aab8de;
+    font-size: 12px;
+  }
+
+  .dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .red {
+    background: #ff5573;
+  }
+
+  .yellow {
+    background: #ffd45c;
+  }
+
+  .green {
+    background: #5bf49d;
+  }
+
+  pre {
+    margin: 0;
+    padding: 16px;
+
+    height: 100%;
+    overflow: auto;
+
+    font-family:
+      "SFMono-Regular",
+      Consolas,
+      monospace;
+
+    font-size:
+      clamp(8px, 1.2vw, 11px);
+
+    line-height: 1.6;
+
+    color: #d9e2ff;
+  }
+
+  .keyword {
+    color: #ff6e9f;
+  }
+
+  .function {
+    color: #62e6ff;
+  }
+
+  .string {
+    color: #b7ef72;
+  }
+
+  .number {
+    color: #ffc663;
+  }
+
+  .comment {
+    color: #65739d;
+  }
+
+  /* ---------------- CONTROLS ---------------- */
+
+  footer {
+    height: 17%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .timeline {
+    display: grid;
+    grid-template-columns:
+      repeat(5,1fr);
+
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .timeline button {
+    border: 0;
+    cursor: pointer;
+
+    padding: 9px 3px;
+
+    border-radius: 9px;
+
+    background:
+      rgba(255,255,255,.05);
+
+    color: #8190b5;
+
+    font-size: 9px;
+
+    transition: .25s;
+  }
+
+  .timeline button.active {
+    color: white;
+
+    background:
+      linear-gradient(
+        135deg,
+        #2764ff,
+        #a53eff
+      );
+
+    box-shadow:
+      0 0 20px
+      rgba(91,75,255,.35);
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .control-button {
+    border: none;
+    cursor: pointer;
+
+    padding:
+      10px 20px;
+
+    border-radius: 20px;
+
+    font-weight: bold;
+
+    color: white;
+
+    background:
+      linear-gradient(
+        135deg,
+        #2879ff,
+        #a83dff
+      );
+
+    box-shadow:
+      0 8px 24px
+      rgba(67,70,255,.25);
+  }
+
+  .secondary {
+    background:
+      rgba(255,255,255,.08);
+
+    border:
+      1px solid
+      rgba(255,255,255,.15);
+  }
+
+  .educational {
+    margin-top: 8px;
+    text-align: center;
+
+    color: #687697;
+
+    font-size: 9px;
+  }
+
+  @media (max-width: 650px) {
+    .instagram-frame {
+      padding: 13px;
+    }
+
+    .main {
+      gap: 8px;
+    }
+
+    .cell {
+      width: 65px;
+      height: 65px;
+    }
+
+    pre {
+      padding: 9px;
+    }
+
+    .stage-info {
+      padding: 9px;
+    }
+  }
+
+</style>
+</head>
+
+<body>
+
+<div class="instagram-frame">
+
+  <header>
+    <h1>Development of a Cancer Cell</h1>
+
+    <p>
+      Interactive cellular transformation • simplified educational model
+    </p>
+  </header>
+
+  <section class="main">
+
+    <!-- OUTPUT -->
+    <div class="panel stage">
+
+      <div class="microscope-grid"></div>
+      <div class="glow"></div>
+
+      <div id="cellLayer"></div>
+
+      <div class="dna" id="dnaEffect">
+        <span style="left:20%; top:25%"></span>
+        <span style="left:67%; top:35%; animation-delay:.2s"></span>
+        <span style="left:38%; top:65%; animation-delay:.4s"></span>
+        <span style="left:75%; top:72%; animation-delay:.6s"></span>
+        <span style="left:48%; top:18%; animation-delay:.8s"></span>
+      </div>
+
+      <div class="stage-info">
+
+        <div class="stage-number" id="stageNumber">
+          STAGE 01
+        </div>
+
+        <div class="stage-name" id="stageName">
+          Healthy Cell
+        </div>
+
+        <div class="stage-description"
+             id="stageDescription">
+
+          Normal cells regulate growth,
+          DNA repair and programmed cell death.
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- SOURCE CODE -->
+    <div class="panel code-panel">
+
+      <div class="code-header">
+
+        <span>simulation.js</span>
+
+        <div class="dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+
+      </div>
+
+<pre>
+<span class="comment">// Simplified educational</span>
+<span class="comment">// cancer progression</span>
+
+<span class="keyword">const</span>
+stages = [
+
+ {
+  name:
+  <span class="string">"Healthy Cell"</span>,
+  mutations:
+  <span class="number">0</span>,
+  growth:
+  <span class="string">"controlled"</span>
+ },
+
+ {
+  name:
+  <span class="string">"DNA Damage"</span>,
+  mutations:
+  <span class="number">1</span>
+ },
+
+ {
+  name:
+  <span class="string">"Abnormal Cell"</span>,
+  growth:
+  <span class="string">"increasing"</span>
+ },
+
+ {
+  name:
+  <span class="string">"Clonal Growth"</span>,
+  divisionRate:
+  <span class="number">2.4</span>
+ },
+
+ {
+  name:
+  <span class="string">"Tumor Growth"</span>,
+  invasion:
+  <span class="keyword">true</span>
+ }
+
+];
+
+<span class="keyword">function</span>
+<span class="function">divideCell</span>() {
+
+ const cell =
+ document
+ .createElement(
+   <span class="string">"div"</span>
+ );
+
+ cell.className =
+ <span class="string">"cell mutated"</span>;
+
+ cellLayer
+ .appendChild(cell);
+}
+
+<span class="keyword">function</span>
+<span class="function">mutateDNA</span>() {
+
+ cell.classList
+ .add(
+   <span class="string">"mutated"</span>
+ );
+
+ dnaEffect
+ .classList
+ .add(
+   <span class="string">"active"</span>
+ );
+}
+
+<span class="keyword">function</span>
+<span class="function">progress</span>() {
+
+ stage++;
+
+ renderStage(stage);
+
+}
+</pre>
+
+    </div>
+
+  </section>
+
+
+  <footer>
+
+    <div class="timeline">
+
+      <button class="stage-button active"
+              data-stage="0">
+        HEALTHY
+      </button>
+
+      <button class="stage-button"
+              data-stage="1">
+        DAMAGE
+      </button>
+
+      <button class="stage-button"
+              data-stage="2">
+        ABNORMAL
+      </button>
+
+      <button class="stage-button"
+              data-stage="3">
+        GROWTH
+      </button>
+
+      <button class="stage-button"
+              data-stage="4">
+        TUMOR
+      </button>
+
+    </div>
+
+    <div class="controls">
+
+      <button class="control-button"
+              id="playButton">
+        ▶ Play Development
+      </button>
+
+      <button class="control-button secondary"
+              id="resetButton">
+        Reset
+      </button>
+
+    </div>
+
+    <div class="educational">
+      Educational visualization only • Cancer biology is substantially
+      more complex than this simplified animation.
+    </div>
+
+  </footer>
+
+</div>
+
+
+<script>
+
+const cellLayer =
+  document.getElementById("cellLayer");
+
+const dnaEffect =
+  document.getElementById("dnaEffect");
+
+const stageName =
+  document.getElementById("stageName");
+
+const stageNumber =
+  document.getElementById("stageNumber");
+
+const stageDescription =
+  document.getElementById(
+    "stageDescription"
+  );
+
+const playButton =
+  document.getElementById("playButton");
+
+const resetButton =
+  document.getElementById("resetButton");
+
+const stageButtons =
+  document.querySelectorAll(
+    ".stage-button"
+  );
+
+
+const stages = [
+
+  {
+    name: "Healthy Cell",
+
+    description:
+      "Normal cells regulate growth, DNA repair and programmed cell death.",
+
+    cells: 1,
+
+    mutated: false
+  },
+
+  {
+    name: "DNA Damage",
+
+    description:
+      "DNA can accumulate mutations. Cells possess repair systems, but some alterations may persist.",
+
+    cells: 1,
+
+    mutated: true,
+
+    dna: true
+  },
+
+  {
+    name: "Abnormal Cell",
+
+    description:
+      "Certain combinations of mutations may disrupt normal controls on growth and survival.",
+
+    cells: 2,
+
+    mutated: true
+  },
+
+  {
+    name: "Clonal Expansion",
+
+    description:
+      "An abnormal cell population may expand as descendants inherit growth-promoting changes.",
+
+    cells: 7,
+
+    mutated: true
+  },
+
+  {
+    name: "Tumor Growth",
+
+    description:
+      "Further alterations can produce a growing, genetically diverse population of abnormal cells.",
+
+    cells: 18,
+
+    mutated: true,
+
+    aggressive: true
+  }
+
+];
+
+
+let currentStage = 0;
+let playing = false;
+let timer = null;
+
+
+/* -----------------------------
+   CREATE CELL
+----------------------------- */
+
+function createCell(index, total, stage) {
+
+  const cell =
+    document.createElement("div");
+
+  cell.className = "cell";
+
+
+  if (stage.mutated) {
+    cell.classList.add("mutated");
+  }
+
+  if (stage.aggressive) {
+    cell.classList.add("aggressive");
+  }
+
+
+  /*
+    Arrange cells around the
+    center using a spiral-like
+    distribution.
+  */
+
+  const angle =
+    index * 2.399;
+
+  const radius =
+    total === 1
+      ? 0
+      : 12 + Math.sqrt(index) * 38;
+
+
+  const centerX = 50;
+  const centerY = 42;
+
+  const x =
+    centerX +
+    Math.cos(angle) *
+    radius / 4.5;
+
+  const y =
+    centerY +
+    Math.sin(angle) *
+    radius / 5.2;
+
+
+  const sizeVariation =
+    0.65 +
+    Math.random() * 0.35;
+
+
+  cell.style.left = x + "%";
+  cell.style.top = y + "%";
+
+  cell.style.setProperty(
+    "--scale",
+    sizeVariation
+  );
+
+
+  /*
+    Random shape changes help
+    simulate cellular irregularity.
+  */
+
+  if (stage.mutated) {
+
+    cell.style.borderRadius =
+      `${35 + Math.random()*25}% 
+       ${40 + Math.random()*25}% 
+       ${35 + Math.random()*25}% 
+       ${40 + Math.random()*25}%`;
+
+  }
+
+
+  cellLayer.appendChild(cell);
+}
+
+
+/* -----------------------------
+   RENDER STAGE
+----------------------------- */
+
+function renderStage(index) {
+
+  currentStage = index;
+
+  const stage =
+    stages[currentStage];
+
+
+  cellLayer.innerHTML = "";
+
+
+  for (
+    let i = 0;
+    i < stage.cells;
+    i++
+  ) {
+
+    createCell(
+      i,
+      stage.cells,
+      stage
+    );
+
+  }
+
+
+  stageNumber.textContent =
+    "STAGE " +
+    String(index + 1)
+      .padStart(2, "0");
+
+
+  stageName.textContent =
+    stage.name;
+
+
+  stageDescription.textContent =
+    stage.description;
+
+
+  dnaEffect.classList.toggle(
+    "active",
+    Boolean(stage.dna)
+  );
+
+
+  stageButtons.forEach(
+    (button, i) => {
+
+      button.classList.toggle(
+        "active",
+        i === index
+      );
+
+    }
+  );
+
+}
+
+
+/* -----------------------------
+   PLAY ANIMATION
+----------------------------- */
+
+function playDevelopment() {
+
+  if (playing) {
+
+    clearInterval(timer);
+
+    playing = false;
+
+    playButton.textContent =
+      "▶ Play Development";
+
+    return;
+
+  }
+
+
+  playing = true;
+
+  playButton.textContent =
+    "❚❚ Pause";
+
+
+  timer =
+    setInterval(() => {
+
+      if (
+        currentStage <
+        stages.length - 1
+      ) {
+
+        renderStage(
+          currentStage + 1
+        );
+
+      }
+
+      else {
+
+        clearInterval(timer);
+
+        playing = false;
+
+        playButton.textContent =
+          "↻ Replay";
+
+      }
+
+    }, 2200);
+
+}
+
+
+/* -----------------------------
+   CONTROLS
+----------------------------- */
+
+playButton.addEventListener(
+  "click",
+  playDevelopment
+);
+
+
+resetButton.addEventListener(
+  "click",
+  () => {
+
+    clearInterval(timer);
+
+    playing = false;
+
+    playButton.textContent =
+      "▶ Play Development";
+
+    renderStage(0);
+
+  }
+);
+
+
+stageButtons.forEach(
+  button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        clearInterval(timer);
+
+        playing = false;
+
+        playButton.textContent =
+          "▶ Play Development";
+
+        renderStage(
+          Number(
+            button.dataset.stage
+          )
+        );
+
+      }
+    );
+
+  }
+);
+
+
+/* Initial cell */
+
+renderStage(0);
+
+</script>
+
+</body>
+</html>
